@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pensieve
+
+A personal, offline-first note-taking app with markdown support and hierarchical organization.
+
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router) + React 19 + TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Database**: PostgreSQL (Supabase) + Drizzle ORM
+- **Validation**: Zod + drizzle-zod
+- **Auth**: Better Auth
+- **State Management**: TanStack Query (React Query)
+- **Offline Storage**: IndexedDB
+- **Editor**: Tiptap
+- **Testing**: Vitest + Playwright
+- **Linting/Formatting**: Biome
+- **Deployment**: Vercel
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Bun installed
+- PostgreSQL database (Supabase recommended)
+- Google OAuth credentials
+
+### Setup
+
+1. Clone the repository and install dependencies:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Copy `.env.example` to `.env.local` and fill in your environment variables:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cp .env.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. Set up your database:
 
-## Learn More
+```bash
+# Generate migration files
+bun run db:generate
 
-To learn more about Next.js, take a look at the following resources:
+# Run migrations
+bun run db:migrate
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Or push schema directly (for development)
+bun run db:push
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. Run the development server:
 
-## Deploy on Vercel
+```bash
+bun run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Open [http://localhost:3000](http://localhost:3000) to see the app.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Available Scripts
+
+- `bun run dev` - Start development server with Turbopack
+- `bun run build` - Build for production
+- `bun run start` - Start production server
+- `bun run lint` - Run Biome linter
+- `bun run lint:fix` - Fix linting issues
+- `bun run format` - Format code with Biome
+- `bun run db:generate` - Generate Drizzle migrations
+- `bun run db:migrate` - Run database migrations
+- `bun run db:push` - Push schema to database
+- `bun run db:studio` - Open Drizzle Studio
+- `bun run test` - Run unit tests
+- `bun run test:ui` - Run tests with UI
+- `bun run test:e2e` - Run E2E tests
+
+## Project Structure
+
+```
+pensieve/
+├── app/              # Next.js app directory
+├── components/       # React components
+│   ├── ui/          # shadcn/ui components
+│   ├── editor/      # Markdown editor components
+│   └── sidebar/     # Sidebar components
+├── lib/             # Utilities and configurations
+│   ├── db/          # Database client and schema
+│   ├── hooks/       # Custom React hooks
+│   └── utils/       # Utility functions
+├── types/           # TypeScript type definitions
+└── tests/           # Test files
+```
+
+## Features (Planned)
+
+- ✅ Project initialization
+- ⏳ Authentication with Google (restricted access)
+- ⏳ CRUD operations for notes
+- ⏳ Markdown editor with slash commands
+- ⏳ Hierarchical note organization
+- ⏳ Offline support with sync
+- ⏳ PWA support
+- ⏳ Mobile responsive design
+
+## License
+
+Private project - All rights reserved
