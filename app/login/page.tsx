@@ -1,26 +1,120 @@
 "use client";
 
-import { signIn } from "@/lib/auth-client";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { signUp, passkey, passkeySignIn } from "@/lib/auth-client";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<"email" | "passkey">("email");
 
-  const handleGoogleSignIn = async () => {
+  // Check for error in URL parameters
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      setError("Access denied: Your email is not authorized to access this application.");
+    }
+  }, [searchParams]);
+
+  // no live validation – we validate on submit only
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
     setError(null);
-    
+
+    if (!email) {
+      setError("Please enter your email address");
+      setIsLoading(false);
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address");
+      setIsLoading(false);
+      return;
+    }
+
+    // Optional server-side validation before proceeding (no email list exposed)
+    // Validate against server allowlist on submit
     try {
-      await signIn.social({
-        provider: "google",
-        callbackURL: "/",
+      const res = await fetch('/api/validate-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
-    } catch (err) {
-      console.error("Sign in error:", err);
-      setError("Failed to sign in. Please try again.");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.message || 'Email not allowed');
+        setIsLoading(false);
+        return;
+      }
+    } catch {
+      // If the validation API fails, fall back to DB trigger later – but surface a generic error now
+      setError('Validation failed, please try again.');
+      setIsLoading(false);
+      return;
+    }
+
+    setStep("passkey");
+    setIsLoading(false);
+  };
+
+  const handlePasskeyAuth = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Attempt to sign up first. If it's a brand new user, this creates a session
+      const signUpResult = await signUp.email({
+        email,
+        password: crypto.randomUUID(), // Not actually used later
+        name: email.split("@")[0],
+      });
+
+      if (!signUpResult.error) {
+        // New user: we now have a session → register passkey
+        const reg = await passkey.addPasskey({
+          authenticatorAttachment: "platform",
+          useAutoRegister: false,
+        });
+        if (reg?.error) throw new Error(reg.error.message || "Failed to register passkey");
+        router.push("/");
+        return;
+      }
+
+      // If user already exists, do NOT try to register (needs session). Try passkey sign-in.
+      if (signUpResult.error.message?.includes("already exists")) {
+        const si = await passkeySignIn();
+        if (si.data) {
+          router.push("/");
+          return;
+        }
+        // No credential available on this device
+        setError(
+          "No passkey found for this account on this device. Use a device where you registered a passkey, or sign in there and add a new passkey for this device."
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Other signup errors
+      throw new Error(signUpResult.error.message);
+    } catch (err: any) {
+      console.error("Passkey auth error:", err);
+      if (err.message?.includes("Unauthorized")) {
+        setError("Access denied: Your email is not authorized to access this application.");
+      } else if (err.message?.includes("User cancelled") || err.message?.includes("NotAllowedError")) {
+        setError("Passkey authentication was cancelled.");
+      } else {
+        setError(err.message || "Failed to authenticate. Please try again.");
+      }
       setIsLoading(false);
     }
   };
@@ -44,59 +138,96 @@ export default function LoginPage() {
             </div>
           )}
 
-          <button
-            onClick={handleGoogleSignIn}
-            disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-lg font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? (
-              <>
-                <svg
-                  className="animate-spin h-5 w-5 text-gray-600 dark:text-gray-300"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
+          {step === "email" ? (
+            <form onSubmit={handleEmailSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your-email@example.com"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  disabled={isLoading}
+                  autoFocus
+                />
+                {/* no live validation hints */}
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Continue
+              </button>
+            </form>
+          ) : (
+            <div className="space-y-4">
+              <div className="text-center mb-6">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  Signing in as
+                </p>
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {email}
+                </p>
+                <button
+                  onClick={() => {
+                    setStep("email");
+                    setError(null);
+                  }}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-1"
                 >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                <span>Signing in...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-                <span>Continue with Google</span>
-              </>
-            )}
-          </button>
+                  Change email
+                </button>
+              </div>
+
+              <button
+                onClick={handlePasskeyAuth}
+                disabled={isLoading}
+                className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-5 w-5"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    <span>Authenticating...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    <span>Continue with Passkey</span>
+                  </>
+                )}
+              </button>
+
+              <p className="text-xs text-center text-gray-500 dark:text-gray-400 mt-4">
+                {isLoading ? "Setting up your passkey..." : "Use your device's biometric or PIN to authenticate"}
+              </p>
+            </div>
+          )}
 
           <div className="mt-6 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400">

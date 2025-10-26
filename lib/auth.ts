@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { passkey } from "better-auth/plugins/passkey";
 import { db } from "./db/client";
 
 export const auth = betterAuth({
@@ -7,31 +8,17 @@ export const auth = betterAuth({
     provider: "pg",
   }),
   emailAndPassword: {
-    enabled: false, // We only want Google OAuth
+    enabled: true,
+    requireEmailVerification: false, // We'll use email just for identification
+    autoSignIn: true,
   },
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-    },
-  },
-  // Restrict access to only your email
-  callbacks: {
-    async signIn({ user }) {
-      const allowedEmail = process.env.ALLOWED_EMAIL;
-      if (!allowedEmail) {
-        console.error("ALLOWED_EMAIL environment variable is not set");
-        return false;
-      }
-      
-      const isAllowed = user.email === allowedEmail;
-      
-      if (!isAllowed) {
-        console.log(`Unauthorized sign-in attempt from: ${user.email}`);
-      }
-      
-      return isAllowed;
-    },
-  },
+  plugins: [
+    passkey({
+      rpName: "Pensieve",
+      // Let the library infer rpID and origin from the incoming request to avoid mismatches
+    }),
+  ],
+  // Note: Email restriction is enforced at the database level via PostgreSQL trigger
+  // See database trigger: check_allowed_email() and enforce_allowed_email
 });
 

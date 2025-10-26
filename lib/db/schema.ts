@@ -54,6 +54,24 @@ export const verification = pgTable('verification', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
+export const passkey = pgTable('passkey', {
+  id: text('id').primaryKey(),
+  name: text('name'),
+  publicKey: text('public_key').notNull(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  // The plugin expects credentialID; store as snake_case column
+  credentialID: text('credential_id'),
+  // Optional aaguid as per plugin schema
+  aaguid: text('aaguid'),
+  counter: integer('counter').notNull(),
+  deviceType: text('device_type').notNull(),
+  backedUp: boolean('backed_up').notNull(),
+  transports: text('transports'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
 export const notes = pgTable('notes', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id')
