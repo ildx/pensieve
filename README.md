@@ -1,6 +1,8 @@
 # Pensieve
 
-A personal, offline-first note-taking app with markdown support and hierarchical organization.
+<img width="720" height="358" alt="image" src="https://github.com/user-attachments/assets/4c794863-0c7f-4573-b2ba-4f54ce19e910" />
+
+A magical artifact that remembers what you write.
 
 ## Tech Stack
 
