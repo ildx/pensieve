@@ -70,6 +70,11 @@ function LoginPageInner() {
     setIsLoading(false)
   }
 
+  const ensureSessionThenRedirect = async () => {
+    // Prefer immediate hard navigation; cookies from the previous response are already stored
+    window.location.href = '/'
+  }
+
   const handlePasskeyAuth = async () => {
     // Cooldown guard to avoid hammering auth/DB on rapid retries
     if (cooldownUntil && Date.now() < cooldownUntil) return
@@ -85,52 +90,46 @@ function LoginPageInner() {
     }
 
     try {
-      // Try passkey sign-in first (existing users)
-      const si = await withTimeout(passkeySignIn(), 12000, 'Passkey sign-in')
-      if (si?.data) {
-        router.push('/')
-        return
-      }
-
-      // New user path: sign up with a short client-side timeout to avoid long pool timeouts
-      const signupPromise = signUp.email({
-        email,
-        password: crypto.randomUUID(),
-        name: email.split('@')[0],
-      })
-      const timeout = new Promise((_, rej) =>
-        setTimeout(() => rej(new Error('Sign-up timeout')), 3500)
-      )
-      let signUpResult: unknown
+      // Try creating/ensuring the account first; if it already exists, we'll sign in
       try {
-        signUpResult = await Promise.race([signupPromise, timeout])
-      } catch (e: unknown) {
-        setError('Sign-up temporarily unavailable. Please try again in a few seconds.')
-        setCooldownUntil(Date.now() + 5000)
-        setIsLoading(false)
+        const signupPromise = signUp.email({
+          email,
+          password: crypto.randomUUID(),
+          name: email.split('@')[0],
+        })
+        const timeout = new Promise((_, rej) =>
+          setTimeout(() => rej(new Error('Sign-up timeout')), 3500)
+        )
+        const result: unknown = await Promise.race([signupPromise, timeout])
+        if (result && typeof result === 'object' && 'error' in result) {
+          const msg = (result as { error?: { message?: string } }).error?.message
+          if (msg && !msg.includes('already exists')) {
+            throw new Error(msg)
+          }
+        }
+      } catch (e) {
+        // If signup failed due to timeout or unexpected error, try sign-in path
+      }
+
+      // If user existed or after creating the account, add/register a passkey
+      try {
+        const reg = await withTimeout(
+          passkey.addPasskey({
+            authenticatorAttachment: 'platform',
+            useAutoRegister: false,
+          }),
+          15000,
+          'Passkey registration'
+        )
+        if (reg?.error) throw new Error(reg.error.message || 'Failed to register passkey')
+        await ensureSessionThenRedirect()
+        return
+      } catch (_) {
+        // If adding a passkey requires an existing session (returning user), try passkey sign-in
+        await withTimeout(passkeySignIn(), 12000, 'Passkey sign-in')
+        await ensureSessionThenRedirect()
         return
       }
-
-      if (signUpResult && typeof signUpResult === 'object' && 'error' in signUpResult) {
-        const errObj = (signUpResult as { error?: { message?: string } }).error
-        const msg = errObj?.message as string | undefined
-        if (msg && !msg.includes('already exists')) {
-          throw new Error(msg || 'Sign-up failed')
-        }
-      }
-
-      // We have (or just created) a session, register passkey
-      const reg = await withTimeout(
-        passkey.addPasskey({
-          authenticatorAttachment: 'platform',
-          useAutoRegister: false,
-        }),
-        15000,
-        'Passkey registration'
-      )
-      if (reg?.error) throw new Error(reg.error.message || 'Failed to register passkey')
-      router.push('/')
-      return
     } catch (err: unknown) {
       console.error('Passkey auth error:', err)
       const error = err as Error
