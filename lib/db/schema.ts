@@ -72,6 +72,11 @@ export const passkey = pgTable('passkey', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
+// Allowed emails table for access control
+export const allowedEmails = pgTable('allowed_emails', {
+  email: text('email').primaryKey(),
+})
+
 export const notes = pgTable('notes', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id')

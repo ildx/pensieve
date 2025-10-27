@@ -13,6 +13,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:reset:migrations": "rm -f drizzle/migrations/*.sql && rm -rf drizzle/migrations/meta && mkdir -p drizzle/migrations && touch drizzle/migrations/.keep",
+    "db:setup:fresh": "bun run db:reset:migrations && drizzle-kit generate && drizzle-kit push && node scripts/setup-allowed-emails.js",
     "auth:update-email": "node scripts/update-allowed-email.js",
     "test": "vitest",
     "test:ui": "vitest --ui",

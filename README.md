@@ -40,17 +40,23 @@ bun install
 cp .env.example .env.local
 ```
 
-3. Set up your database:
+3. Set up your database (one command does it all!):
 
+```bash
+# Fresh setup: resets migrations, generates new ones, pushes to DB, and seeds allowed emails
+bun run db:setup:fresh
+```
+
+Or manually:
 ```bash
 # Generate migration files
 bun run db:generate
 
-# Run migrations
-bun run db:migrate
-
-# Or push schema directly (for development)
+# Push schema to database
 bun run db:push
+
+# Seed allowed emails from .env
+node scripts/setup-allowed-emails.js
 ```
 
 4. Run the development server:
@@ -73,6 +79,8 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 - `bun run db:migrate` - Run database migrations
 - `bun run db:push` - Push schema to database
 - `bun run db:studio` - Open Drizzle Studio
+- `bun run db:setup:fresh` - Complete fresh database setup (reset, generate, push, seed)
+- `bun run db:reset:migrations` - Clear all migration files
 - `bun run auth:update-email <email>` - Update allowed email for authentication
 - `bun run test` - Run unit tests
 - `bun run test:ui` - Run tests with UI

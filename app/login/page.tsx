@@ -9,6 +9,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"email" | "passkey">("email");
 
@@ -67,45 +68,48 @@ export default function LoginPage() {
   };
 
   const handlePasskeyAuth = async () => {
+    // Cooldown guard to avoid hammering auth/DB on rapid retries
+    if (cooldownUntil && Date.now() < cooldownUntil) return;
     setIsLoading(true);
     setError(null);
 
     try {
-      // Attempt to sign up first. If it's a brand new user, this creates a session
-      const signUpResult = await signUp.email({
-        email,
-        password: crypto.randomUUID(), // Not actually used later
-        name: email.split("@")[0],
-      });
-
-      if (!signUpResult.error) {
-        // New user: we now have a session → register passkey
-        const reg = await passkey.addPasskey({
-          authenticatorAttachment: "platform",
-          useAutoRegister: false,
-        });
-        if (reg?.error) throw new Error(reg.error.message || "Failed to register passkey");
+      // Try passkey sign-in first (existing users)
+      const si = await passkeySignIn();
+      if (si?.data) {
         router.push("/");
         return;
       }
 
-      // If user already exists, do NOT try to register (needs session). Try passkey sign-in.
-      if (signUpResult.error.message?.includes("already exists")) {
-        const si = await passkeySignIn();
-        if (si.data) {
-          router.push("/");
-          return;
-        }
-        // No credential available on this device
-        setError(
-          "No passkey found for this account on this device. Use a device where you registered a passkey, or sign in there and add a new passkey for this device."
-        );
+      // New user path: sign up with a short client-side timeout to avoid long pool timeouts
+      const signupPromise = signUp.email({
+        email,
+        password: crypto.randomUUID(),
+        name: email.split("@")[0],
+      });
+      const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("Sign-up timeout")), 3500));
+      let signUpResult: any;
+      try {
+        signUpResult = await Promise.race([signupPromise, timeout]);
+      } catch (e: any) {
+        setError("Sign-up temporarily unavailable. Please try again in a few seconds.");
+        setCooldownUntil(Date.now() + 5000);
         setIsLoading(false);
         return;
       }
 
-      // Other signup errors
-      throw new Error(signUpResult.error.message);
+      if (signUpResult?.error && !signUpResult.error.message?.includes("already exists")) {
+        throw new Error(signUpResult.error.message || "Sign-up failed");
+      }
+
+      // We have (or just created) a session, register passkey
+      const reg = await passkey.addPasskey({
+        authenticatorAttachment: "platform",
+        useAutoRegister: false,
+      });
+      if (reg?.error) throw new Error(reg.error.message || "Failed to register passkey");
+      router.push("/");
+      return;
     } catch (err: any) {
       console.error("Passkey auth error:", err);
       if (err.message?.includes("Unauthorized")) {
@@ -114,6 +118,7 @@ export default function LoginPage() {
         setError("Passkey authentication was cancelled.");
       } else {
         setError(err.message || "Failed to authenticate. Please try again.");
+        setCooldownUntil(Date.now() + 5000);
       }
       setIsLoading(false);
     }
