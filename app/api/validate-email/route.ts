@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { sqlClient } from '@/lib/db/client'
 import { validateEmailLimiter, getClientIp, sleep } from '@/lib/utils/rateLimit'
+import { validateEmailRequestSchema } from '@/lib/validators/email'
+import { ZodError } from 'zod'
 
 export const runtime = 'nodejs'
 
@@ -14,19 +16,23 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json().catch(() => ({ email: undefined }))
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[validate-email] incoming email:', email)
+    const body = await req.json().catch(() => ({}))
+    
+    // Validate and sanitize input using Zod
+    const validationResult = validateEmailRequestSchema.safeParse(body)
+    
+    if (!validationResult.success) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[validate-email] validation failed:', validationResult.error.issues)
+      }
+      return addSecurityHeaders(NextResponse.json({ message: 'Invalid email' }, { status: 400 }))
     }
     
-    // Sanitize and validate email format
-    if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return addSecurityHeaders(NextResponse.json({ message: 'Invalid email' }, { status: 400 }))
-    }
-
-    // Additional email sanitization - prevent excessively long emails
-    if (email.length > 254) {
-      return addSecurityHeaders(NextResponse.json({ message: 'Invalid email' }, { status: 400 }))
+    // Email is now validated, trimmed, and lowercased by Zod
+    const { email } = validationResult.data
+    
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[validate-email] incoming email:', email)
     }
 
     // Fast-path in development: if ALLOWED_EMAILS is set locally, use it and return immediately
@@ -90,7 +96,7 @@ export async function POST(req: Request) {
         } catch {}
       }
       const rows = await sqlClient`
-        select 1 from public.allowed_emails where lower(email)=${email.toLowerCase()} limit 1
+        select 1 from public.allowed_emails where lower(email)=${email} limit 1
       `
       const ok = rows.length > 0
       if (process.env.NODE_ENV !== 'production') {
@@ -113,7 +119,7 @@ export async function POST(req: Request) {
         }
         const env = process.env.ALLOWED_EMAILS || ''
         const allowed = env.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
-        const ok = allowed.includes(email.toLowerCase())
+        const ok = allowed.includes(email)
         if (process.env.NODE_ENV !== 'production') {
           console.log('[validate-email] env fallback ok:', ok)
         }

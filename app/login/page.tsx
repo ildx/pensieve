@@ -3,6 +3,7 @@
 import { signUp, passkey, passkeySignIn } from "@/lib/auth-client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
+import { emailSchema } from "@/lib/validators/email";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,28 +29,25 @@ export default function LoginPage() {
     setIsLoading(true);
     setError(null);
 
-    if (!email) {
-      setError("Please enter your email address");
+    // Validate email using Zod schema
+    const validationResult = emailSchema.safeParse(email);
+    
+    if (!validationResult.success) {
+      const errorMessage = validationResult.error.issues[0]?.message || "Please enter a valid email address";
+      setError(errorMessage);
       setIsLoading(false);
       return;
     }
+    
+    // Email is now validated, trimmed, and lowercased by Zod
+    const validatedEmail = validationResult.data;
 
-    // Basic email validation and sanitization
-    const trimmedEmail = email.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmedEmail) || trimmedEmail.length > 254) {
-      setError("Please enter a valid email address");
-      setIsLoading(false);
-      return;
-    }
-
-    // Optional server-side validation before proceeding (no email list exposed)
-    // Validate against server allowlist on submit
+    // Server-side validation against allowlist
     try {
       const res = await fetch('/api/validate-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail.toLowerCase() }),
+        body: JSON.stringify({ email: validatedEmail }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -57,8 +55,8 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
-      // Store normalized email for passkey step
-      setEmail(trimmedEmail.toLowerCase());
+      // Store validated email for passkey step
+      setEmail(validatedEmail);
     } catch (err) {
       // If the validation API fails, fall back to DB trigger later – but surface a generic error now
       console.error('Validation error:', err);
