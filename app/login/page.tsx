@@ -80,9 +80,7 @@ function LoginPageInner() {
     const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promise<T> => {
       return await Promise.race<Promise<T>>([
         p,
-        new Promise<T>((_, rej) =>
-          setTimeout(() => rej(new Error(`${label} timeout`)), ms)
-        ),
+        new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`${label} timeout`)), ms)),
       ])
     }
 
@@ -124,8 +122,8 @@ function LoginPageInner() {
       // We have (or just created) a session, register passkey
       const reg = await withTimeout(
         passkey.addPasskey({
-        authenticatorAttachment: 'platform',
-        useAutoRegister: false,
+          authenticatorAttachment: 'platform',
+          useAutoRegister: false,
         }),
         15000,
         'Passkey registration'
