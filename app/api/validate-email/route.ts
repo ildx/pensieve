@@ -4,14 +4,29 @@ import { validateEmailLimiter, getClientIp, sleep } from '@/lib/utils/rateLimit'
 
 export const runtime = 'nodejs'
 
+// Helper to add security headers to responses
+function addSecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+  response.headers.set('X-Frame-Options', 'DENY')
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+  return response
+}
+
 export async function POST(req: Request) {
   try {
     const { email } = await req.json().catch(() => ({ email: undefined }))
     if (process.env.NODE_ENV !== 'production') {
       console.log('[validate-email] incoming email:', email)
     }
+    
+    // Sanitize and validate email format
     if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json({ message: 'Invalid email' }, { status: 400 })
+      return addSecurityHeaders(NextResponse.json({ message: 'Invalid email' }, { status: 400 }))
+    }
+
+    // Additional email sanitization - prevent excessively long emails
+    if (email.length > 254) {
+      return addSecurityHeaders(NextResponse.json({ message: 'Invalid email' }, { status: 400 }))
     }
 
     // Fast-path in development: if ALLOWED_EMAILS is set locally, use it and return immediately
@@ -24,8 +39,8 @@ export async function POST(req: Request) {
           console.log('[validate-email] dev fast-path via env:', ok)
         }
         return ok
-          ? NextResponse.json({ ok: true })
-          : NextResponse.json({ message: 'Invalid credentials' }, { status: 403 })
+          ? addSecurityHeaders(NextResponse.json({ ok: true }))
+          : addSecurityHeaders(NextResponse.json({ message: 'Invalid credentials' }, { status: 403 }))
       }
     }
 
@@ -39,7 +54,7 @@ export async function POST(req: Request) {
             if (process.env.NODE_ENV !== 'production') {
               console.warn('[validate-email] origin rejected', { origin, allowed: `${allowed.protocol}//${allowed.host}` })
             }
-            return NextResponse.json({ message: 'Forbidden' }, { status: 403 })
+            return addSecurityHeaders(NextResponse.json({ message: 'Forbidden' }, { status: 403 }))
           }
         } catch {}
       }
@@ -51,13 +66,13 @@ export async function POST(req: Request) {
         const { success } = await validateEmailLimiter.limit(getClientIp(req))
         if (!success) {
           await sleep(200 + Math.random() * 300)
-          return NextResponse.json({ message: 'Too many requests' }, { status: 429 })
+          return addSecurityHeaders(NextResponse.json({ message: 'Too many requests' }, { status: 429 }))
         }
       } catch (e) {
         // Ignore rate-limit errors in development to avoid 500s
         if (process.env.NODE_ENV === 'production') {
           console.error('[validate-email] ratelimit error', e)
-          return NextResponse.json({ message: 'Validation failed' }, { status: 500 })
+          return addSecurityHeaders(NextResponse.json({ message: 'Validation failed' }, { status: 500 }))
         }
         console.warn('[validate-email] ratelimit error (ignored in dev)', e)
       }
@@ -65,7 +80,7 @@ export async function POST(req: Request) {
 
     // Validate against database allowlist to avoid exposing any emails client-side
     if (!process.env.DATABASE_URL) {
-      return NextResponse.json({ message: 'Server misconfiguration' }, { status: 500 })
+      return addSecurityHeaders(NextResponse.json({ message: 'Server misconfiguration' }, { status: 500 }))
     }
     try {
       if (process.env.NODE_ENV !== 'production') {
@@ -82,8 +97,8 @@ export async function POST(req: Request) {
         console.log('[validate-email] db rows length:', rows.length)
       }
       return ok
-        ? NextResponse.json({ ok: true })
-        : NextResponse.json({ message: 'Invalid credentials' }, { status: 403 })
+        ? addSecurityHeaders(NextResponse.json({ ok: true }))
+        : addSecurityHeaders(NextResponse.json({ message: 'Invalid credentials' }, { status: 403 }))
     } catch (err: any) {
       if (process.env.NODE_ENV !== 'production') {
         console.warn('[validate-email] DB connect/query error, will fallback to env:', err?.message || err)
@@ -103,14 +118,14 @@ export async function POST(req: Request) {
           console.log('[validate-email] env fallback ok:', ok)
         }
         return ok
-          ? NextResponse.json({ ok: true })
-          : NextResponse.json({ message: 'Invalid credentials' }, { status: 403 })
+          ? addSecurityHeaders(NextResponse.json({ ok: true }))
+          : addSecurityHeaders(NextResponse.json({ message: 'Invalid credentials' }, { status: 403 }))
       }
       console.error('[validate-email] DB error (prod):', err?.message || err)
-      return NextResponse.json({ message: 'Validation failed' }, { status: 500 })
-    } finally {}
+      return addSecurityHeaders(NextResponse.json({ message: 'Validation failed' }, { status: 500 }))
+    }
   } catch (e) {
     console.error('[validate-email] unexpected error', e)
-    return NextResponse.json({ message: 'Validation failed' }, { status: 500 })
+    return addSecurityHeaders(NextResponse.json({ message: 'Validation failed' }, { status: 500 }))
   }
 }

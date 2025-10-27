@@ -18,7 +18,13 @@ export async function proxy(request: NextRequest) {
   const sessionToken = request.cookies.get("better-auth.session_token");
 
   // If no session token, redirect to login
-  if (!sessionToken) {
+  if (!sessionToken || !sessionToken.value) {
+    const loginUrl = new URL("/login", request.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Additional validation: check token format (basic sanity check)
+  if (sessionToken.value.length < 10 || sessionToken.value.length > 500) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

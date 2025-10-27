@@ -17,22 +17,23 @@ const emails = (emailsArg || envEmails)
     // 1) Create table if not exists
     await sql`CREATE TABLE IF NOT EXISTS allowed_emails (email text PRIMARY KEY)`;
 
-    // 2) Upsert provided emails
+    // 2) Upsert provided emails (normalize to lowercase for consistency)
     if (emails.length) {
       for (const email of emails) {
-        await sql`INSERT INTO allowed_emails (email) VALUES (${email}) ON CONFLICT (email) DO NOTHING`;
+        const normalizedEmail = email.toLowerCase();
+        await sql`INSERT INTO allowed_emails (email) VALUES (${normalizedEmail}) ON CONFLICT (email) DO NOTHING`;
       }
       console.log(`✓ Ensured ${emails.length} allowed email(s)`);
     } else {
       console.log('No emails provided via args or ALLOWED_EMAILS env; skipping seeding');
     }
 
-    // 3) Replace function to check table instead of hardcoded email
+    // 3) Replace function to check table with case-insensitive comparison
     await sql`
       CREATE OR REPLACE FUNCTION check_allowed_email()
       RETURNS TRIGGER AS $$
       BEGIN
-        IF NOT EXISTS (SELECT 1 FROM allowed_emails WHERE email = NEW.email) THEN
+        IF NOT EXISTS (SELECT 1 FROM allowed_emails WHERE LOWER(email) = LOWER(NEW.email)) THEN
           RAISE EXCEPTION 'Unauthorized: This email address is not allowed to access this application';
         END IF;
         RETURN NEW;

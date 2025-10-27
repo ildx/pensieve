@@ -34,9 +34,10 @@ export default function LoginPage() {
       return;
     }
 
-    // Basic email validation
+    // Basic email validation and sanitization
+    const trimmedEmail = email.trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(trimmedEmail) || trimmedEmail.length > 254) {
       setError("Please enter a valid email address");
       setIsLoading(false);
       return;
@@ -48,7 +49,7 @@ export default function LoginPage() {
       const res = await fetch('/api/validate-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: trimmedEmail.toLowerCase() }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -56,8 +57,11 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
-    } catch {
+      // Store normalized email for passkey step
+      setEmail(trimmedEmail.toLowerCase());
+    } catch (err) {
       // If the validation API fails, fall back to DB trigger later – but surface a generic error now
+      console.error('Validation error:', err);
       setError('Validation failed, please try again.');
       setIsLoading(false);
       return;
