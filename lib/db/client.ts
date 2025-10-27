@@ -7,6 +7,16 @@ if (!process.env.DATABASE_URL) {
 }
 
 // Disable prefetch as it's not supported for "Transaction" pool mode
-const client = postgres(process.env.DATABASE_URL, { prepare: false })
+// Keep a single shared connection pool; keep limits low for pooler
+const client = postgres(process.env.DATABASE_URL, {
+  prepare: false,
+  max: 1,
+  idle_timeout: 2,
+  connect_timeout: 5,
+  ssl: 'require',
+})
 
 export const db = drizzle(client, { schema })
+
+// Export raw client for lightweight queries (e.g., email validation)
+export const sqlClient = client
