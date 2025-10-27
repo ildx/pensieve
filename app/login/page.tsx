@@ -76,9 +76,17 @@ function LoginPageInner() {
     setIsLoading(true)
     setError(null)
 
+    // Helper to guard against indefinite hangs in production
+    const withTimeout = async <T,>(p: Promise<T>, ms: number, label: string): Promise<T> => {
+      return await Promise.race<Promise<T>>([
+        p,
+        new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`${label} timeout`)), ms)),
+      ])
+    }
+
     try {
       // Try passkey sign-in first (existing users)
-      const si = await passkeySignIn()
+      const si = await withTimeout(passkeySignIn(), 12000, 'Passkey sign-in')
       if (si?.data) {
         router.push('/')
         return
@@ -112,10 +120,14 @@ function LoginPageInner() {
       }
 
       // We have (or just created) a session, register passkey
-      const reg = await passkey.addPasskey({
-        authenticatorAttachment: 'platform',
-        useAutoRegister: false,
-      })
+      const reg = await withTimeout(
+        passkey.addPasskey({
+          authenticatorAttachment: 'platform',
+          useAutoRegister: false,
+        }),
+        15000,
+        'Passkey registration'
+      )
       if (reg?.error) throw new Error(reg.error.message || 'Failed to register passkey')
       router.push('/')
       return
