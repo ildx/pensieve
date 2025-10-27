@@ -14,15 +14,40 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   return response
 }
 
+function getErrorMessage(err: unknown): string {
+  if (
+    err &&
+    typeof err === 'object' &&
+    'message' in err &&
+    typeof (err as { message?: unknown }).message === 'string'
+  ) {
+    return (err as { message: string }).message
+  }
+  return String(err)
+}
+
+function getErrorCode(err: unknown): string | undefined {
+  if (
+    err &&
+    typeof err === 'object' &&
+    'code' in err &&
+    typeof (err as { code?: unknown }).code === 'string'
+  ) {
+    return (err as { code: string }).code
+  }
+  return undefined
+}
+
 export async function POST(req: Request) {
   try {
+    const NODE_ENV = String(process.env.NODE_ENV || '')
     const body = await req.json().catch(() => ({}))
 
     // Validate and sanitize input using Zod
     const validationResult = validateEmailRequestSchema.safeParse(body)
 
     if (!validationResult.success) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (NODE_ENV !== 'production') {
         console.log('[validate-email] validation failed:', validationResult.error.issues)
       }
       return addSecurityHeaders(NextResponse.json({ message: 'Invalid email' }, { status: 400 }))
@@ -31,12 +56,12 @@ export async function POST(req: Request) {
     // Email is now validated, trimmed, and lowercased by Zod
     const { email } = validationResult.data
 
-    if (process.env.NODE_ENV !== 'production') {
+    if (NODE_ENV !== 'production') {
       console.log('[validate-email] incoming email:', email)
     }
 
     // Fast-path in development: if ALLOWED_EMAILS is set locally, use it and return immediately
-    if (process.env.NODE_ENV !== 'production') {
+    if (NODE_ENV !== 'production') {
       const env = process.env.ALLOWED_EMAILS || ''
       const allowed = env
         .split(',')
@@ -44,7 +69,7 @@ export async function POST(req: Request) {
         .filter(Boolean)
       if (allowed.length > 0) {
         const ok = allowed.includes(email.toLowerCase())
-        if (process.env.NODE_ENV !== 'production') {
+        if (NODE_ENV !== 'production') {
           console.log('[validate-email] dev fast-path via env:', ok)
         }
         return ok
@@ -56,13 +81,13 @@ export async function POST(req: Request) {
     }
 
     // Basic origin check (production only to avoid local host/IP mismatches)
-    if (process.env.NODE_ENV === 'production') {
+    if (NODE_ENV === 'production') {
       const origin = req.headers.get('origin') || ''
       if (origin && process.env.BETTER_AUTH_URL) {
         try {
           const allowed = new URL(process.env.BETTER_AUTH_URL)
           if (!origin.startsWith(`${allowed.protocol}//${allowed.host}`)) {
-            if (process.env.NODE_ENV !== 'production') {
+            if (NODE_ENV !== 'production') {
               console.warn('[validate-email] origin rejected', {
                 origin,
                 allowed: `${allowed.protocol}//${allowed.host}`,
@@ -86,7 +111,7 @@ export async function POST(req: Request) {
         }
       } catch (e) {
         // Ignore rate-limit errors in development to avoid 500s
-        if (process.env.NODE_ENV === 'production') {
+        if (NODE_ENV === 'production') {
           console.error('[validate-email] ratelimit error', e)
           return addSecurityHeaders(
             NextResponse.json({ message: 'Validation failed' }, { status: 500 })
@@ -103,7 +128,7 @@ export async function POST(req: Request) {
       )
     }
     try {
-      if (process.env.NODE_ENV !== 'production') {
+      if (NODE_ENV !== 'production') {
         try {
           const u = new URL(process.env.DATABASE_URL)
           console.log('[validate-email] querying DB host:', u.host)
@@ -113,30 +138,31 @@ export async function POST(req: Request) {
         select 1 from public.allowed_emails where lower(email)=${email} limit 1
       `
       const ok = rows.length > 0
-      if (process.env.NODE_ENV !== 'production') {
+      if (NODE_ENV !== 'production') {
         console.log('[validate-email] db rows length:', rows.length)
       }
       return ok
         ? addSecurityHeaders(NextResponse.json({ ok: true }))
         : addSecurityHeaders(NextResponse.json({ message: 'Invalid credentials' }, { status: 403 }))
     } catch (err: unknown) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (NODE_ENV !== 'production') {
         console.warn(
           '[validate-email] DB connect/query error, will fallback to env:',
-          err?.message || err
+          getErrorMessage(err)
         )
       }
       // In development or when relation missing, fall back to env list
+      const errCode = getErrorCode(err)
+      const errMsg = getErrorMessage(err)
       if (
-        process.env.NODE_ENV !== 'production' ||
-        (err &&
-          (err.code === '42P01' ||
-            /relation .*allowed_emails.* does not exist/i.test(String(err.message))))
+        NODE_ENV !== 'production' ||
+        errCode === '42P01' ||
+        /relation .*allowed_emails.* does not exist/i.test(String(errMsg))
       ) {
-        if (process.env.NODE_ENV !== 'production') {
+        if (NODE_ENV !== 'production') {
           console.warn('[validate-email] DB error, falling back to env:', {
-            code: err?.code,
-            message: err?.message,
+            code: errCode,
+            message: errMsg,
           })
         }
         const env = process.env.ALLOWED_EMAILS || ''
@@ -145,7 +171,7 @@ export async function POST(req: Request) {
           .map(s => s.trim().toLowerCase())
           .filter(Boolean)
         const ok = allowed.includes(email)
-        if (process.env.NODE_ENV !== 'production') {
+        if (NODE_ENV !== 'production') {
           console.log('[validate-email] env fallback ok:', ok)
         }
         return ok
@@ -154,7 +180,7 @@ export async function POST(req: Request) {
               NextResponse.json({ message: 'Invalid credentials' }, { status: 403 })
             )
       }
-      console.error('[validate-email] DB error (prod):', err?.message || err)
+      console.error('[validate-email] DB error (prod):', getErrorMessage(err))
       return addSecurityHeaders(
         NextResponse.json({ message: 'Validation failed' }, { status: 500 })
       )

@@ -3,9 +3,9 @@
 import { passkey, passkeySignIn, signUp } from '@/lib/auth-client'
 import { emailSchema } from '@/lib/validators/email'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 
-export default function LoginPage() {
+function LoginPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
@@ -103,8 +103,12 @@ export default function LoginPage() {
         return
       }
 
-      if (signUpResult?.error && !signUpResult.error.message?.includes('already exists')) {
-        throw new Error(signUpResult.error.message || 'Sign-up failed')
+      if (signUpResult && typeof signUpResult === 'object' && 'error' in signUpResult) {
+        const errObj = (signUpResult as { error?: { message?: string } }).error
+        const msg = errObj?.message as string | undefined
+        if (msg && !msg.includes('already exists')) {
+          throw new Error(msg || 'Sign-up failed')
+        }
       }
 
       // We have (or just created) a session, register passkey
@@ -263,5 +267,15 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}
+    >
+      <LoginPageInner />
+    </Suspense>
   )
 }

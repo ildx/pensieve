@@ -7,6 +7,6 @@ process.env.BETTER_AUTH_URL = process.env.BETTER_AUTH_URL || 'http://localhost:3
 process.env.NEXT_PUBLIC_BETTER_AUTH_URL =
   process.env.NEXT_PUBLIC_BETTER_AUTH_URL || 'http://localhost:3000'
 process.env.ALLOWED_EMAILS = process.env.ALLOWED_EMAILS || 'test@example.com,allowed@example.com'
-process.env.NODE_ENV = process.env.NODE_ENV || 'test'
+// Do not assign NODE_ENV here; Next.js treats it as readonly during build
 
 import '@testing-library/jest-dom'

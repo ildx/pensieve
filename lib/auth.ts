@@ -6,7 +6,7 @@ import { db } from './db/client'
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     // Use postgres-js provider since our client is postgres-js
-    provider: 'postgres',
+    provider: 'pg',
   }),
   emailAndPassword: {
     enabled: true,
