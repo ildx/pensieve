@@ -1,26 +1,26 @@
-"use client";
+'use client'
 
-import { useSession, signOut } from "@/lib/auth-client";
+import { signOut, useSession } from '@/lib/auth-client'
 
 export default function Home() {
-  const { data: session, isPending } = useSession();
+  const { data: session, isPending } = useSession()
 
   const handleSignOut = async () => {
     await signOut({
       fetchOptions: {
         onSuccess: () => {
-          window.location.href = "/login";
+          window.location.href = '/login'
         },
       },
-    });
-  };
+    })
+  }
 
   if (isPending) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white" />
       </div>
-    );
+    )
   }
 
   return (
@@ -29,9 +29,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Pensieve
-              </h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Pensieve</h1>
             </div>
             <div className="flex items-center gap-4">
               {session?.user && (
@@ -49,6 +47,7 @@ export default function Home() {
                     </span>
                   </div>
                   <button
+                    type="button"
                     onClick={handleSignOut}
                     className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                   >
@@ -76,5 +75,5 @@ export default function Home() {
         </div>
       </main>
     </div>
-  );
+  )
 }

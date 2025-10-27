@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
 import { insertNoteSchema, updateNoteSchema } from '@/lib/db/schema'
+import { describe, expect, it } from 'vitest'
 
 describe('Database Schema Validation', () => {
   describe('insertNoteSchema', () => {
@@ -123,4 +123,3 @@ describe('Database Schema Validation', () => {
     })
   })
 })
-

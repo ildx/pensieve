@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
 import { getClientIp, sleep } from '@/lib/utils/rateLimit'
+import { describe, expect, it } from 'vitest'
 
 describe('Rate Limit Utils', () => {
   describe('getClientIp', () => {
@@ -62,7 +62,7 @@ describe('Rate Limit Utils', () => {
       const start = Date.now()
       await sleep(100)
       const duration = Date.now() - start
-      
+
       // Allow 20ms tolerance for timing
       expect(duration).toBeGreaterThanOrEqual(100)
       expect(duration).toBeLessThan(150)
@@ -74,4 +74,3 @@ describe('Rate Limit Utils', () => {
     })
   })
 })
-

@@ -6,10 +6,12 @@ export default function UnauthorizedPage() {
           <div className="mb-6">
             <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center">
               <svg
+                role="img"
                 className="w-8 h-8 text-red-600 dark:text-red-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-label="Access denied icon"
               >
                 <path
                   strokeLinecap="round"
@@ -21,11 +23,10 @@ export default function UnauthorizedPage() {
             </div>
           </div>
 
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Access Denied
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            This application is restricted to authorized users only. Your email address is not on the allowed list.
+            This application is restricted to authorized users only. Your email address is not on
+            the allowed list.
           </p>
 
           <a
@@ -37,6 +38,5 @@ export default function UnauthorizedPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }
-

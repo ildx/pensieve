@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
 import { emailSchema, validateEmailRequestSchema } from '@/lib/validators/email'
+import { describe, expect, it } from 'vitest'
 
 describe('Email Validators', () => {
   describe('emailSchema', () => {
@@ -47,7 +47,7 @@ describe('Email Validators', () => {
     })
 
     it('should reject email exceeding 254 characters', () => {
-      const longEmail = 'a'.repeat(250) + '@test.com'
+      const longEmail = `${'a'.repeat(250)}@test.com`
       const result = emailSchema.safeParse(longEmail)
       expect(result.success).toBe(false)
       if (!result.success) {
@@ -129,4 +129,3 @@ describe('Email Validators', () => {
     })
   })
 })
-

@@ -22,4 +22,3 @@ export const validateEmailRequestSchema = z.object({
 })
 
 export type ValidateEmailRequest = z.infer<typeof validateEmailRequestSchema>
-

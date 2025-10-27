@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
 import { POST } from '@/app/api/validate-email/route'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 // Note: Tests run in development mode by default, so they use the ALLOWED_EMAILS env var
 // which is set in tests/setup.ts
@@ -15,7 +15,7 @@ describe('Validate Email API', () => {
 
       const response = await POST(request)
       expect(response.status).toBe(400)
-      
+
       const data = await response.json()
       expect(data.message).toBe('Invalid email')
     })
@@ -29,13 +29,13 @@ describe('Validate Email API', () => {
 
       const response = await POST(request)
       expect(response.status).toBe(400)
-      
+
       const data = await response.json()
       expect(data.message).toBe('Invalid email')
     })
 
     it('should reject email exceeding 254 characters', async () => {
-      const longEmail = 'a'.repeat(250) + '@test.com'
+      const longEmail = `${'a'.repeat(250)}@test.com`
       const request = new Request('http://localhost:3000/api/validate-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -44,7 +44,7 @@ describe('Validate Email API', () => {
 
       const response = await POST(request)
       expect(response.status).toBe(400)
-      
+
       const data = await response.json()
       expect(data.message).toBe('Invalid email')
     })
@@ -70,7 +70,7 @@ describe('Validate Email API', () => {
       })
 
       const response = await POST(request)
-      
+
       expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff')
       expect(response.headers.get('X-Frame-Options')).toBe('DENY')
       expect(response.headers.get('Cache-Control')).toContain('no-store')
@@ -88,7 +88,7 @@ describe('Validate Email API', () => {
 
       const response = await POST(request)
       expect(response.status).toBe(200)
-      
+
       const data = await response.json()
       expect(data.ok).toBe(true)
     })
@@ -102,7 +102,7 @@ describe('Validate Email API', () => {
 
       const response = await POST(request)
       expect(response.status).toBe(403)
-      
+
       const data = await response.json()
       expect(data.message).toBe('Invalid credentials')
     })
@@ -157,7 +157,7 @@ describe('Validate Email API', () => {
       })
 
       const response = await POST(request)
-      
+
       if (response.status === 403) {
         const data = await response.json()
         expect(data.message).toBe('Invalid credentials')
@@ -165,4 +165,3 @@ describe('Validate Email API', () => {
     })
   })
 })
-
