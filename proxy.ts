@@ -17,6 +17,19 @@ export async function proxy(request: NextRequest) {
   // Check for session token in cookies
   const sessionToken = request.cookies.get('better-auth.session_token')
 
+  // Debug logging in production to diagnose cookie issues
+  if (process.env.NODE_ENV === 'production') {
+    console.log('[proxy] pathname:', pathname)
+    console.log(
+      '[proxy] all cookies:',
+      request.cookies.getAll().map(c => c.name)
+    )
+    console.log('[proxy] session token exists:', !!sessionToken)
+    if (sessionToken) {
+      console.log('[proxy] session token length:', sessionToken.value.length)
+    }
+  }
+
   // If no session token, redirect to login
   if (!sessionToken || !sessionToken.value) {
     const loginUrl = new URL('/login', request.url)
