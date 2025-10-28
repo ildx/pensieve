@@ -117,13 +117,31 @@ function LoginPageInner() {
           'Passkey registration'
         )
         if (reg?.error) throw new Error(reg.error.message || 'Failed to register passkey')
-        // Success: navigate immediately
+
+        console.log('[login] passkey registration successful, checking cookies...')
+        console.log('[login] document.cookie:', document.cookie)
+
+        // Give the browser a moment to process the Set-Cookie header
+        await new Promise(r => setTimeout(r, 200))
+
+        console.log('[login] after delay, document.cookie:', document.cookie)
+
+        // Force a full page reload to ensure cookies are sent with the request
         window.location.href = '/'
         return
       } catch (_) {
         // If adding a passkey requires an existing session (returning user), try passkey sign-in
         await withTimeout(passkeySignIn(), 12000, 'Passkey sign-in')
-        // Success: navigate immediately
+
+        console.log('[login] passkey sign-in successful, checking cookies...')
+        console.log('[login] document.cookie:', document.cookie)
+
+        // Give the browser a moment to process the Set-Cookie header
+        await new Promise(r => setTimeout(r, 200))
+
+        console.log('[login] after delay, document.cookie:', document.cookie)
+
+        // Force a full page reload to ensure cookies are sent with the request
         window.location.href = '/'
         return
       }
