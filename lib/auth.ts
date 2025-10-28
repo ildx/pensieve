@@ -8,6 +8,10 @@ export const auth = betterAuth({
     // Use postgres-js provider since our client is postgres-js
     provider: 'pg',
   }),
+  baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3000',
+  trustedOrigins: process.env.BETTER_AUTH_URL
+    ? [process.env.BETTER_AUTH_URL]
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false, // We'll use email just for identification
