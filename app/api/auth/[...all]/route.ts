@@ -27,6 +27,19 @@ export async function POST(req: NextRequest) {
   const pathname = new URL(req.url).pathname
   console.log('[auth-api] POST', pathname)
 
+  // Log incoming cookies to see if the session is being sent
+  if (process.env.NODE_ENV === 'production') {
+    const cookies = req.cookies.getAll()
+    console.log(
+      '[auth-api] POST incoming cookies:',
+      cookies.map(c => c.name)
+    )
+    const sessionCookie =
+      req.cookies.get('__Secure-better-auth.session_token') ||
+      req.cookies.get('better-auth.session_token')
+    console.log('[auth-api] POST has session cookie:', !!sessionCookie)
+  }
+
   const response = await handlers.POST(req)
 
   // Log Set-Cookie headers in production to verify they're being sent
