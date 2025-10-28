@@ -15,7 +15,10 @@ export async function proxy(request: NextRequest) {
   }
 
   // Check for session token in cookies
-  const sessionToken = request.cookies.get('better-auth.session_token')
+  // In production (HTTPS), Better Auth uses __Secure- prefix
+  const sessionToken =
+    request.cookies.get('__Secure-better-auth.session_token') ||
+    request.cookies.get('better-auth.session_token')
 
   // Debug logging in production to diagnose cookie issues
   if (process.env.NODE_ENV === 'production') {
