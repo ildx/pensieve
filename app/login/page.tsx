@@ -70,11 +70,6 @@ function LoginPageInner() {
     setIsLoading(false)
   }
 
-  const ensureSessionThenRedirect = async () => {
-    // Prefer immediate hard navigation; cookies from the previous response are already stored
-    window.location.href = '/'
-  }
-
   const handlePasskeyAuth = async () => {
     // Cooldown guard to avoid hammering auth/DB on rapid retries
     if (cooldownUntil && Date.now() < cooldownUntil) return
@@ -122,12 +117,14 @@ function LoginPageInner() {
           'Passkey registration'
         )
         if (reg?.error) throw new Error(reg.error.message || 'Failed to register passkey')
-        await ensureSessionThenRedirect()
+        // Success: navigate immediately
+        window.location.href = '/'
         return
       } catch (_) {
         // If adding a passkey requires an existing session (returning user), try passkey sign-in
         await withTimeout(passkeySignIn(), 12000, 'Passkey sign-in')
-        await ensureSessionThenRedirect()
+        // Success: navigate immediately
+        window.location.href = '/'
         return
       }
     } catch (err: unknown) {
